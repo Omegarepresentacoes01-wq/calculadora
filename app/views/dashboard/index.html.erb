@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Financiamento</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f6f9;
+        margin: 0;
+        padding: 20px;
+    }
+
+    .container {
+        max-width: 900px;
+        margin: auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+        text-align: center;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+
+    input, select, button {
+        padding: 8px;
+        font-size: 14px;
+        width: 100%;
+    }
+
+    button {
+        background: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+    }
+
+    button:hover {
+        background: #0056b3;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-size: 12px;
+    }
+
+    table, th, td {
+        border: 1px solid #ddd;
+    }
+
+    th {
+        background: #007bff;
+        color: white;
+    }
+
+    th, td {
+        padding: 6px;
+        text-align: center;
+    }
+
+    .resultado {
+        margin-top: 20px;
+        font-weight: bold;
+    }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Calculadora Financeira</h1>
+
+    <div class="grid">
+        <div>
+            <label>Valor do Bem (R$)</label>
+            <input type="number" id="valorBem" step="0.01">
+        </div>
+
+        <div>
+            <label>% a Financiar</label>
+            <input type="number" id="percentualFinanciado" step="0.01">
+        </div>
+
+        <div>
+            <label>IOF (%)</label>
+            <input type="number" id="iof" step="0.01" value="3.38">
+        </div>
+
+        <div>
+            <label>Juros Mensal (%)</label>
+            <input type="number" id="jurosMensal" step="0.01">
+        </div>
+
+        <div>
+            <label>Juros Anual (%)</label>
+            <input type="number" id="jurosAnual" step="0.01">
+        </div>
+
+        <div>
+            <label>Número de Parcelas</label>
+            <input type="number" id="parcelas">
+        </div>
+
+        <div>
+            <label>Sistema de Amortização</label>
+            <select id="sistema">
+                <option value="price">PRICE</option>
+                <option value="sac">SAC</option>
+            </select>
+        </div>
+    </div>
+
+    <br>
+    <button onclick="calcular()">Calcular</button>
+
+    <div class="resultado" id="resultado"></div>
+
+    <table id="tabela">
+        <thead>
+            <tr>
+                <th>Parcela</th>
+                <th>Prestação</th>
+                <th>Juros</th>
+                <th>Amortização</th>
+                <th>Saldo Devedor</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+</div>
+
+<script>
+
+function calcular() {
+
+    const valorBem = parseFloat(document.getElementById("valorBem").value) || 0;
+    const percentualFinanciado = parseFloat(document.getElementById("percentualFinanciado").value) || 0;
+    const iofPercentual = parseFloat(document.getElementById("iof").value) || 0;
+    let jurosMensal = parseFloat(document.getElementById("jurosMensal").value) || 0;
+    let jurosAnual = parseFloat(document.getElementById("jurosAnual").value) || 0;
+    const parcelas = parseInt(document.getElementById("parcelas").value) || 0;
+    const sistema = document.getElementById("sistema").value;
+
+    if (jurosMensal === 0 && jurosAnual !== 0) {
+        jurosMensal = (Math.pow(1 + (jurosAnual/100), 1/12) - 1) * 100;
+    }
+
+    if (jurosAnual === 0 && jurosMensal !== 0) {
+        jurosAnual = (Math.pow(1 + (jurosMensal/100), 12) - 1) * 100;
+    }
+
+    const valorFinanciado = valorBem * (percentualFinanciado / 100);
+    const valorIOF = valorFinanciado * (iofPercentual / 100);
+    let saldoDevedor = valorFinanciado + valorIOF;
+
+    const taxa = jurosMensal / 100;
+
+    const tbody = document.querySelector("#tabela tbody");
+    tbody.innerHTML = "";
+
+    let totalPago = 0;
+    let totalJuros = 0;
+
+    if (sistema === "price") {
+
+        const prestacao = saldoDevedor * 
+            (taxa * Math.pow(1 + taxa, parcelas)) / 
+            (Math.pow(1 + taxa, parcelas) - 1);
+
+        for (let i = 1; i <= parcelas; i++) {
+
+            const juros = saldoDevedor * taxa;
+            const amortizacao = prestacao - juros;
+            saldoDevedor -= amortizacao;
+
+            totalPago += prestacao;
+            totalJuros += juros;
+
+            adicionarLinha(i, prestacao, juros, amortizacao, saldoDevedor);
+        }
+
+    } else if (sistema === "sac") {
+
+        const amortizacao = saldoDevedor / parcelas;
+
+        for (let i = 1; i <= parcelas; i++) {
+
+            const juros = saldoDevedor * taxa;
+            const prestacao = amortizacao + juros;
+            saldoDevedor -= amortizacao;
+
+            totalPago += prestacao;
+            totalJuros += juros;
+
+            adicionarLinha(i, prestacao, juros, amortizacao, saldoDevedor);
+        }
+    }
+
+    document.getElementById("resultado").innerHTML = `
+        Valor Financiado: R$ ${valorFinanciado.toFixed(2)} <br>
+        IOF: R$ ${valorIOF.toFixed(2)} <br>
+        Total Pago: R$ ${totalPago.toFixed(2)} <br>
+        Total de Juros: R$ ${totalJuros.toFixed(2)} <br>
+        Juros Mensal Efetivo: ${jurosMensal.toFixed(2)}% <br>
+        Juros Anual Efetivo: ${jurosAnual.toFixed(2)}%
+    `;
+}
+
+function adicionarLinha(parcela, prestacao, juros, amortizacao, saldo) {
+
+    const tbody = document.querySelector("#tabela tbody");
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+        <td>${parcela}</td>
+        <td>R$ ${prestacao.toFixed(2)}</td>
+        <td>R$ ${juros.toFixed(2)}</td>
+        <td>R$ ${amortizacao.toFixed(2)}</td>
+        <td>R$ ${saldo > 0 ? saldo.toFixed(2) : "0.00"}</td>
+    `;
+
+    tbody.appendChild(row);
+}
+
+</script>
+
+</body>
+</html>
